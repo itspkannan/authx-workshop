@@ -45,25 +45,27 @@ stop.keycloak: create.network ## ⏹️ Stop Keycloak Service
 	@DOCKER_NETWORK=$(DOCKER_NETWORK) $(DOCKER_COMPOSE_CMD) down
 
 init.terraform: ## 📦 Initialize terraform Provider
-	@cd terraform && \
-		 docker run --rm -v $(PWD)/$(TERRAFORM_DIR):/workspace -e TF_LOG=$(TF_LOG) \
+	@docker run --rm -v $(PWD)/terraform:/workspace -e TF_LOG=$(TF_LOG) \
 		 -w /workspace --network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) init
 
+plan.terraform: ## 📦 Plan to check the changes
+	@docker run --rm -v $(PWD)/terraform:/workspace -e TF_LOG=$(TF_LOG) \
+		 -w /workspace --network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) plan
+
 apply.terraform: ## ⚙️ Apply terraform confirguration
-	@cd terraform && docker run --rm -v $(PWD)/$(TERRAFORM_DIR):/workspace \
+	@docker run --rm -v $(PWD)/terraform:/workspace \
 		-e TF_LOG=$(TF_LOG) -w /workspace --network $(DOCKER_NETWORK) $(TERRAFORM_IMAGE) apply -auto-approve
 
-init: init.keycloak wait.keycloak init.terraform apply.terraform
+init: init.keycloak wait.keycloak init.terraform plan.terraform apply.terraform
 
 clean.keycloak: ## 🧼 Clean up Keycloak container and volume
 	@docker volume rm keycloak_data || true
 
 clean: stop.keycloak clean.keycloak ## 🧼 Cleanup all the resources created
-	@cd terraform && \
-		docker run --rm -v $(PWD)/$(TERRAFORM_DIR):/workspace -w /workspace \
-		--network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) init && \
-		docker run --rm -v $(PWD)/$(TERRAFORM_DIR):/workspace -w /workspace \
-		--network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) destroy -auto-approve
+	docker run --rm -v $(PWD)/terraform:/workspace -w /workspace \
+	--network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) init && \
+	docker run --rm -v $(PWD)/terraform:/workspace -w /workspace \
+	--network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) destroy -auto-approve
 	@rm -rf terraform/.terraform terraform/terraform.tfstate*
 
 
