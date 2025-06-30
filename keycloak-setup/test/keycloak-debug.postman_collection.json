@@ -1,0 +1,94 @@
+{
+  "info": {
+    "name": "Keycloak OAuth2 Debug",
+    "_postman_id": "a0fae758-1d77-4f85-90ae-0ef58e6e8e5c",
+    "description": "Debug and test Keycloak OAuth2 password grant + user status.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://authx.provider.local:8080" },
+    { "key": "realm", "value": "demo" },
+    { "key": "admin_user", "value": "admin" },
+    { "key": "admin_pass", "value": "admin" },
+    { "key": "client_id", "value": "demo-client" },
+    { "key": "client_secret", "value": "demo-client-secret" },
+    { "key": "testuser", "value": "testuser" },
+    { "key": "testpass", "value": "testpassword" }
+  ],
+  "item": [
+    {
+      "name": "Get Admin Token",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "username", "value": "{{admin_user}}" },
+            { "key": "password", "value": "{{admin_pass}}" },
+            { "key": "grant_type", "value": "password" },
+            { "key": "client_id", "value": "admin-cli" }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/realms/master/protocol/openid-connect/token",
+          "host": ["{{base_url}}"],
+          "path": ["realms", "master", "protocol", "openid-connect", "token"]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let json = pm.response.json();",
+              "pm.environment.set(\"admin_token\", json.access_token);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "List Users in Realm",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/admin/realms/{{realm}}/users",
+          "host": ["{{base_url}}"],
+          "path": ["admin", "realms", "{{realm}}", "users"]
+        }
+      }
+    },
+    {
+      "name": "Password Grant - testuser",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "client_id", "value": "{{client_id}}" },
+            { "key": "client_secret", "value": "{{client_secret}}" },
+            { "key": "username", "value": "{{testuser}}" },
+            { "key": "password", "value": "{{testpass}}" },
+            { "key": "grant_type", "value": "password" }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/realms/{{realm}}/protocol/openid-connect/token",
+          "host": ["{{base_url}}"],
+          "path": ["realms", "{{realm}}", "protocol", "openid-connect", "token"]
+        }
+      }
+    }
+  ]
+}

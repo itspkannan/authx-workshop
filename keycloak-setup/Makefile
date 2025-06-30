@@ -1,0 +1,79 @@
+TERRAFORM_DIR := terraform
+TERRAFORM_IMAGE = hashicorp/terraform:1.8
+DOCKER_NETWORK = oauth2
+PROJECT = authx
+DOCKER_COMPOSE_CMD = docker compose -p $(PROJECT)
+TF_LOG = ERROR
+KEYCLOAK_HOSTNAME=authx.provider.local
+KEYCLOAK_PORT=8080
+KEYCLOAK_URL=http://$(KEYCLOAK_HOSTNAME):$(KEYCLOAK_PORT)
+
+include .env
+export $(shell sed 's/=.*//' .env)
+
+.DEFAULT_GOAL := help
+
+.PHONY: help
+help: ## 📖 Print help message
+	@echo "\n\033[1;33mAvailable commands:\033[0m" \
+	    && awk -F ':.*## ' '/^[a-zA-Z0-9_.-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) \
+	    | sort && echo ""
+
+.PHONY: create.network
+create.network: ## 🌐 Create a network
+	@echo "[INFO] Creating docker network $(DOCKER_NETWORK)."
+	@docker network create $(DOCKER_NETWORK) || true
+
+init.keycloak: create.network ## 🛠️ Provision Keycloak Service
+	@DOCKER_NETWORK=$(DOCKER_NETWORK) $(DOCKER_COMPOSE_CMD)  up -d
+
+debug.env:
+	@cd terraform && docker run --rm --env-file $(PWD)/.env --network $(DOCKER_NETWORK) busybox env
+
+wait.keycloak:
+	@echo "⏳ Waiting for Keycloak..."
+	@until docker run --env-file .env --rm --network $(DOCKER_NETWORK) curlimages/curl:latest \
+		-s $(KEYCLOAK_URL)/realms/master/.well-known/openid-configuration > /dev/null; do \
+		printf "."; sleep 5; \
+	done; \
+	echo "\n✅ Keycloak is ready."
+
+start.keycloak: create.network ## ▶️ Start Keycloak Service
+	@DOCKER_NETWORK=$(DOCKER_NETWORK) $(DOCKER_COMPOSE_CMD)  up -d
+
+stop.keycloak: create.network ## ⏹️ Stop Keycloak Service
+	@DOCKER_NETWORK=$(DOCKER_NETWORK) $(DOCKER_COMPOSE_CMD) down
+
+init.terraform: ## 📦 Initialize terraform Provider
+	@cd terraform && \
+		 docker run --rm -v $(PWD)/$(TERRAFORM_DIR):/workspace -e TF_LOG=$(TF_LOG) \
+		 -w /workspace --network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) init
+
+apply.terraform: ## ⚙️ Apply terraform confirguration
+	@cd terraform && docker run --rm -v $(PWD)/$(TERRAFORM_DIR):/workspace \
+		-e TF_LOG=$(TF_LOG) -w /workspace --network $(DOCKER_NETWORK) $(TERRAFORM_IMAGE) apply -auto-approve
+
+init: init.keycloak wait.keycloak init.terraform apply.terraform
+
+clean.keycloak: ## 🧼 Clean up Keycloak container and volume
+	@docker volume rm keycloak_data || true
+
+clean: stop.keycloak clean.keycloak ## 🧼 Cleanup all the resources created
+	@cd terraform && \
+		docker run --rm -v $(PWD)/$(TERRAFORM_DIR):/workspace -w /workspace \
+		--network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) init && \
+		docker run --rm -v $(PWD)/$(TERRAFORM_DIR):/workspace -w /workspace \
+		--network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) destroy -auto-approve
+	@rm -rf terraform/.terraform terraform/terraform.tfstate*
+
+
+test: ## 🧪 Test the setup
+	until docker run --env-file .env --rm --network $(DOCKER_NETWORK) curlimages/curl:latest \
+	-X POST ${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token \
+	-H "Content-Type: application/x-www-form-urlencoded" \
+	-d "client_id=${CLIENT_ID}" \
+	-d "client_secret=${CLIENT_SECRET}" \
+	-d "username=${USERNAME}" \
+	-d "password=${PASSWORD}" \
+	-d "grant_type=password"; do sleep 2; done
+	@echo "✅ Token retrieval successful!"
