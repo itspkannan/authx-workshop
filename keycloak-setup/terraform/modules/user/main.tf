@@ -8,6 +8,8 @@ resource "keycloak_user" "testuser" {
   realm_id = var.realm_id
   username = "testuser"
   email   = "testuser@authx.com"
+  first_name = "Test"
+  last_name  = "User"
   enabled  = true
   email_verified = true
   required_actions = []

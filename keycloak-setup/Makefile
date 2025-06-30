@@ -1,6 +1,6 @@
 TERRAFORM_DIR := terraform
 TERRAFORM_IMAGE = hashicorp/terraform:1.8
-DOCKER_NETWORK = oauth2
+DOCKER_NETWORK = auth_network
 PROJECT = authx
 DOCKER_COMPOSE_CMD = docker compose -p $(PROJECT)
 TF_LOG = ERROR
@@ -88,8 +88,8 @@ clean: clean.terraform stop.keycloak clean.keycloak ## 🧼 Cleanup all the reso
 
 .PHONY: test
 test: ## 🧪 Test the setup
-	@echo "🚀 Attempting token retrieval..."
-	@max_retries=3; \
+	echo "🚀 Attempting token retrieval..."
+	max_retries=3; \
 	count=0; \
 	while true; do \
 	  response=$$(docker run --env-file .env --rm --network $(DOCKER_NETWORK) curlimages/curl:latest \
@@ -101,6 +101,7 @@ test: ## 🧪 Test the setup
 	    -d "username=${USERNAME}" \
 	    -d "password=${PASSWORD}" \
 	    -d "grant_type=password"); \
+		echo  response ;\
 	  if [ "$$response" = "200" ]; then \
 	    echo "✅ Token retrieval successful!"; \
 	    break; \
