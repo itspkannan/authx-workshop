@@ -1,9 +1,9 @@
-resource "keycloak_realm" "demo" {
-  realm   = "demo"
+resource "keycloak_realm" "authx" {
+  realm   = "authx"
   enabled = true
 }
 
 
 output "id" {
-  value = keycloak_realm.demo.id
+  value = keycloak_realm.authx.id
 }

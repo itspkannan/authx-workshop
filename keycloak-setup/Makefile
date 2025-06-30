@@ -41,7 +41,7 @@ wait.keycloak:
 start.keycloak: create.network ## ▶️ Start Keycloak Service
 	@DOCKER_NETWORK=$(DOCKER_NETWORK) $(DOCKER_COMPOSE_CMD)  up -d
 
-stop.keycloak: create.network ## ⏹️ Stop Keycloak Service
+stop.keycloak: ## ⏹️ Stop Keycloak Service
 	@DOCKER_NETWORK=$(DOCKER_NETWORK) $(DOCKER_COMPOSE_CMD) down
 
 init.terraform: ## 📦 Initialize terraform Provider
@@ -52,30 +52,64 @@ plan.terraform: ## 📦 Plan to check the changes
 	@docker run --rm -v $(PWD)/terraform:/workspace -e TF_LOG=$(TF_LOG) \
 		 -w /workspace --network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) plan
 
-apply.terraform: ## ⚙️ Apply terraform confirguration
+apply.terraform: ## ⚙️ Apply terraform configuration
 	@docker run --rm -v $(PWD)/terraform:/workspace \
 		-e TF_LOG=$(TF_LOG) -w /workspace --network $(DOCKER_NETWORK) $(TERRAFORM_IMAGE) apply -auto-approve
 
+taint.user:
+	@docker run --rm -v $(PWD)/terraform:/workspace \
+		-e TF_LOG=$(TF_LOG) -w /workspace --network $(DOCKER_NETWORK) $(TERRAFORM_IMAGE) taint module.user.keycloak_user.testuser
+
+
+output.terraform: ## ⚙️ Output terraform configuration
+	@docker run --rm -v $(PWD)/terraform:/workspace \
+		-e TF_LOG=$(TF_LOG) -w /workspace --network $(DOCKER_NETWORK) $(TERRAFORM_IMAGE) output
+
+generate.env: ## 🧪 Generate .env file from Terraform outputs
+	@echo "[INFO] Generating .env from terraform output..."
+	@docker run --rm -v $(PWD)/terraform:/workspace -w /workspace \
+		$(TERRAFORM_IMAGE) output -json \
+		| jq -r 'to_entries[] | "\(.key | ascii_upcase)=\(.value.value)"' > .env.generated
+	@echo "[INFO] Generated .env.generated"
+	
 init: init.keycloak wait.keycloak init.terraform plan.terraform apply.terraform
+
+clean.terraform:  ## 🧼 Cleanup all the terraform files created
+	@docker run --rm -v $(PWD)/terraform:/workspace -w /workspace \
+	--network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) init && \
+	docker run --rm -v $(PWD)/terraform:/workspace -w /workspace \
+	--network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) destroy -auto-approve || true
+	@rm -rf terraform/.terraform terraform/terraform.tfstate*
 
 clean.keycloak: ## 🧼 Clean up Keycloak container and volume
 	@docker volume rm keycloak_data || true
 
-clean: stop.keycloak clean.keycloak ## 🧼 Cleanup all the resources created
-	docker run --rm -v $(PWD)/terraform:/workspace -w /workspace \
-	--network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) init && \
-	docker run --rm -v $(PWD)/terraform:/workspace -w /workspace \
-	--network $(DOCKER_NETWORK) --env-file $(PWD)/.env $(TERRAFORM_IMAGE) destroy -auto-approve
-	@rm -rf terraform/.terraform terraform/terraform.tfstate*
+clean: clean.terraform stop.keycloak clean.keycloak ## 🧼 Cleanup all the resources created
 
-
+.PHONY: test
 test: ## 🧪 Test the setup
-	until docker run --env-file .env --rm --network $(DOCKER_NETWORK) curlimages/curl:latest \
-	-X POST ${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token \
-	-H "Content-Type: application/x-www-form-urlencoded" \
-	-d "client_id=${CLIENT_ID}" \
-	-d "client_secret=${CLIENT_SECRET}" \
-	-d "username=${USERNAME}" \
-	-d "password=${PASSWORD}" \
-	-d "grant_type=password"; do sleep 2; done
-	@echo "✅ Token retrieval successful!"
+	@echo "🚀 Attempting token retrieval..."
+	@max_retries=3; \
+	count=0; \
+	while true; do \
+	  response=$$(docker run --env-file .env --rm --network $(DOCKER_NETWORK) curlimages/curl:latest \
+	    -s -o /dev/null -w "%{http_code}" \
+	    -X POST ${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token \
+	    -H "Content-Type: application/x-www-form-urlencoded" \
+	    -d "client_id=${CLIENT_ID}" \
+	    -d "client_secret=${CLIENT_SECRET}" \
+	    -d "username=${USERNAME}" \
+	    -d "password=${PASSWORD}" \
+	    -d "grant_type=password"); \
+	  if [ "$$response" = "200" ]; then \
+	    echo "✅ Token retrieval successful!"; \
+	    break; \
+	  fi; \
+	  count=$$((count + 1)); \
+	  if [ $$count -ge $$max_retries ]; then \
+	    echo "❌ Token retrieval failed after $$max_retries attempts."; \
+	    exit 1; \
+	  fi; \
+	  echo "⏳ Retry $$count of $$max_retries..."; \
+	  sleep 2; \
+	done

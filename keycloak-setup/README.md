@@ -5,23 +5,33 @@
 
 ```bash
 keycloak-setup/
-├── docker-compose.yml
-├── keycloak/
-│   └── Dockerfile
-├── terraform/
-    ├── main.tf                 
-    ├── provider.tf             
-    ├── variables.tf            
-    └── modules/
-        ├── realm/
-        │   └── main.tf        
-        ├── client/
-        │   └── main.tf         
-        └── user/
-            └── main.tf        
-
-└── .env
-
+  ├── Makefile
+  ├── README.md
+  ├── auth-client-provisioning.md
+  ├── docker-compose.yaml
+  ├── terraform
+  │   ├── main.tf
+  │   ├── modules
+  │   │   ├── client
+  │   │   │   ├── main.tf
+  │   │   │   ├── provider.tf
+  │   │   │   └── variables.tf
+  │   │   ├── realm
+  │   │   │   ├── main.tf
+  │   │   │   └── provider.tf
+  │   │   └── user
+  │   │       ├── main.tf
+  │   │       ├── provider.tf
+  │   │       └── variables.tf
+  │   ├── provider.tf
+  │   ├── terraform
+  │   ├── terraform.tfstate
+  │   ├── terraform.tfvars
+  │   └── variables.tf
+  ├── terraform.tfstate
+  ├── test
+  │   └── keycloak-debug.postman_collection.json
+  └── usecases.md  
 ```
 
 ## Commands
@@ -30,13 +40,17 @@ keycloak-setup/
 ❯ make help
 
 Available commands:
-  apply.terraform Apply terraform confirguration
-  create.network  Create a network
-  help            Print help message
-  init.keycloak   Provision Keycloak Service
-  init.terraform  Initialize terraform Provider
-  start.keycloak  Start Keycloak Service
-  stop.keycloak   Start Keycloak Service
+  apply.terraform ⚙️ Apply terraform confirguration
+  clean           🧼 Cleanup all the resources created
+  clean.keycloak  🧼 Clean up Keycloak container and volume
+  create.network  🌐 Create a network
+  help            📖 Print help message
+  init.keycloak   🛠️ Provision Keycloak Service
+  init.terraform  📦 Initialize terraform Provider
+  plan.terraform  📦 Plan to check the changes
+  start.keycloak  ▶️ Start Keycloak Service
+  stop.keycloak   ⏹️ Stop Keycloak Service
+  test            🧪 Test the setup
 ```
 
 ## 🔐 Identity Client Provisioning
@@ -52,6 +66,9 @@ make apply.terraform
 ```
 
 The init combines provisioning `Keycloak` and also applying terraform.
+
+<details>
+<summary>make init execution logs</summary>
 
 ```bash
 ❯ make init
@@ -85,21 +102,24 @@ If you ever set or change modules or backend configuration for Terraform,
 rerun this command to reinitialize your working directory. If you forget, other
 commands will detect it and remind you to do so if necessary.
 
+Note: You didn't use the -out option to save this plan, so Terraform can't
+guarantee to take exactly these actions if you run "terraform apply" now.
+
 Terraform used the selected providers to generate the following execution
 plan. Resource actions are indicated with the following symbols:
   + create
 
 Terraform will perform the following actions:
 
-  # keycloak_openid_client.demo_client will be created
-  + resource "keycloak_openid_client" "demo_client" {
+  # module.client.keycloak_openid_client.authx_client will be created
+  + resource "keycloak_openid_client" "authx_client" {
       + access_token_lifespan                     = (known after apply)
       + access_type                               = "CONFIDENTIAL"
       + admin_url                                 = (known after apply)
       + backchannel_logout_session_required       = true
       + base_url                                  = (known after apply)
       + client_authenticator_type                 = "client-secret"
-      + client_id                                 = "demo-client"
+      + client_id                                 = "authx-client"
       + client_offline_session_idle_timeout       = (known after apply)
       + client_offline_session_max_lifespan       = (known after apply)
       + client_secret                             = (sensitive value)
@@ -134,8 +154,8 @@ Terraform will perform the following actions:
       + web_origins                               = (known after apply)
     }
 
-  # keycloak_realm.demo will be created
-  + resource "keycloak_realm" "demo" {
+  # module.realm.keycloak_realm.authx will be created
+  + resource "keycloak_realm" "authx" {
       + access_code_lifespan                     = (known after apply)
       + access_code_lifespan_login               = (known after apply)
       + access_code_lifespan_user_action         = (known after apply)
@@ -160,7 +180,7 @@ Terraform will perform the following actions:
       + offline_session_idle_timeout             = (known after apply)
       + offline_session_max_lifespan             = (known after apply)
       + offline_session_max_lifespan_enabled     = false
-      + realm                                    = "demo"
+      + realm                                    = "authx"
       + refresh_token_max_reuse                  = 0
       + registration_allowed                     = (known after apply)
       + registration_email_as_username           = (known after apply)
@@ -178,16 +198,16 @@ Terraform will perform the following actions:
       + verify_email                             = (known after apply)
     }
 
-  # keycloak_role.admin_role will be created
+  # module.user.keycloak_role.admin_role will be created
   + resource "keycloak_role" "admin_role" {
       + id       = (known after apply)
       + name     = "admin"
       + realm_id = (known after apply)
     }
 
-  # keycloak_user.testuser will be created
+  # module.user.keycloak_user.testuser will be created
   + resource "keycloak_user" "testuser" {
-      + email          = "testuser@demo.com"
+      + email          = "testuser@authx.com"
       + email_verified = true
       + enabled        = true
       + id             = (known after apply)
@@ -200,7 +220,7 @@ Terraform will perform the following actions:
         }
     }
 
-  # keycloak_user_roles.testuser_roles will be created
+  # module.user.keycloak_user_roles.testuser_roles will be created
   + resource "keycloak_user_roles" "testuser_roles" {
       + exhaustive = true
       + id         = (known after apply)
@@ -210,17 +230,20 @@ Terraform will perform the following actions:
     }
 
 Plan: 5 to add, 0 to change, 0 to destroy.
-keycloak_realm.demo: Creating...
-keycloak_realm.demo: Creation complete after 0s [id=demo]
-keycloak_role.admin_role: Creating...
-keycloak_user.testuser: Creating...
-keycloak_openid_client.demo_client: Creating...
-keycloak_role.admin_role: Creation complete after 0s [id=9d97d608-4adb-450b-81c8-f25dfae65271]
-keycloak_user.testuser: Creation complete after 0s [id=1cdd3c5f-7e52-4a08-8fcf-6f572f577ff6]
-keycloak_user_roles.testuser_roles: Creating...
-keycloak_openid_client.demo_client: Creation complete after 0s [id=2962059b-1bf4-4238-999d-419aa8206475]
-keycloak_user_roles.testuser_roles: Creation complete after 0s [id=demo/1cdd3c5f-7e52-4a08-8fcf-6f572f577ff6]
+module.realm.keycloak_realm.authx: Creating...
+module.realm.keycloak_realm.authx: Creation complete after 1s [id=authx]
+module.user.keycloak_role.admin_role: Creating...
+module.user.keycloak_user.testuser: Creating...
+module.client.keycloak_openid_client.authx_client: Creating...
+module.user.keycloak_role.admin_role: Creation complete after 0s [id=c37523e4-b622-42cf-8e10-81d146b96504]
+module.user.keycloak_user.testuser: Creation complete after 0s [id=a7b64ad2-906b-42dd-b635-b982ad2b7f55]
+module.user.keycloak_user_roles.testuser_roles: Creating...
+module.client.keycloak_openid_client.authx_client: Creation complete after 0s [id=4144562a-6833-4fbd-93e8-8e3057089505]
+module.user.keycloak_user_roles.testuser_roles: Creation complete after 0s [id=authx/a7b64ad2-906b-42dd-b635-b982ad2b7f55]
 ```
+
+</details>
+
 
 
 ## Reference

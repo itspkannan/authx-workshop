@@ -7,11 +7,11 @@
   },
   "variable": [
     { "key": "base_url", "value": "http://authx.provider.local:8080" },
-    { "key": "realm", "value": "demo" },
+    { "key": "realm", "value": "authx" },
     { "key": "admin_user", "value": "admin" },
     { "key": "admin_pass", "value": "admin" },
-    { "key": "client_id", "value": "demo-client" },
-    { "key": "client_secret", "value": "demo-client-secret" },
+    { "key": "client_id", "value": "authx-client" },
+    { "key": "client_secret", "value": "authx-client-secret" },
     { "key": "testuser", "value": "testuser" },
     { "key": "testpass", "value": "testpassword" }
   ],
