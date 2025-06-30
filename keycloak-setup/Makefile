@@ -88,8 +88,8 @@ clean: clean.terraform stop.keycloak clean.keycloak ## 🧼 Cleanup all the reso
 
 .PHONY: test
 test: ## 🧪 Test the setup
-	echo "🚀 Attempting token retrieval..."
-	max_retries=3; \
+	@echo "🚀 Attempting token retrieval..."
+	@max_retries=3; \
 	count=0; \
 	while true; do \
 	  response=$$(docker run --env-file .env --rm --network $(DOCKER_NETWORK) curlimages/curl:latest \
@@ -101,7 +101,6 @@ test: ## 🧪 Test the setup
 	    -d "username=${USERNAME}" \
 	    -d "password=${PASSWORD}" \
 	    -d "grant_type=password"); \
-		echo  response ;\
 	  if [ "$$response" = "200" ]; then \
 	    echo "✅ Token retrieval successful!"; \
 	    break; \

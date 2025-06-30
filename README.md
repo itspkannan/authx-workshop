@@ -35,4 +35,6 @@ Each project is self-contained with its own `README`, Docker setup, and Keycloak
 
 
 
+[Project Status Tracker](./TODO.md)
+
 

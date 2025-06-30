@@ -21,7 +21,7 @@ services:
       POSTGRES_PASSWORD: authserver
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - $PWD/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d/init-db.sql
     networks:
       - auth_network
     platform: linux/arm64 
