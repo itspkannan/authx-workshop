@@ -14,17 +14,7 @@ The primary goal of this workshop is to:
 
 ## 📦 What's Included
 
-This repo contains multiple mini-projects and use cases:
-- 🔑 Authorization Code Flow with PKCE for SPAs
-- 🔐 Backend API protection using OAuth2 Bearer tokens
-- 🗂️ File sharing app with RBAC using Keycloak roles
-- 🏢 Multi-tenant SaaS simulation using Keycloak realms
-- 🚪 Keycloak-admin dashboard with REST API integration
-- 🌐 Social Login via federated identity providers (Google, GitHub)
-- 📡 Secure API Gateway for microservices using access tokens
-- ☁️ Kubernetes OIDC login using Keycloak
-
-Each project is self-contained with its own `README`, Docker setup, and Keycloak configuration scripts.
+<TODO>
 
 ## 🛠️ Tech Stack
 
